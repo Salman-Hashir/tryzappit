@@ -6,82 +6,60 @@
 <title>TryZappit — Send</title>
 <link rel="stylesheet" href="../css/style.css">
 <style>
-  body { background: var(--dark); }
-  .page-wrap { max-width: 960px; margin: 0 auto; padding: 24px; }
-
-  .setup-card { max-width: 480px; margin: 60px auto; }
-  .setup-title { font-size: 28px; font-weight: 700; letter-spacing: -1px; margin-bottom: 6px; }
-  .setup-sub { color: var(--text-muted); font-size: 14px; margin-bottom: 32px; font-weight: 300; }
-  .form-group { margin-bottom: 16px; }
-  .optional-tag { font-size: 10px; color: var(--text-muted); font-family: var(--mono); margin-left: 8px; opacity: 0.6; }
-
-  .room-layout { display: grid; grid-template-columns: 1fr 320px; gap: 20px; padding-top: 12px; }
-  .room-left { display: flex; flex-direction: column; gap: 16px; }
-  .room-right { display: flex; flex-direction: column; gap: 16px; }
-
-  .room-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
-  .room-title { font-size: 13px; font-family: var(--mono); color: var(--text-muted); letter-spacing: 1px; }
-
-  @media(max-width: 760px) { .room-layout { grid-template-columns: 1fr; } .setup-card { margin: 32px auto; } }
+body{background:var(--dark)}
+.page-wrap{max-width:960px;margin:0 auto;padding:24px}
+.setup-card{max-width:480px;margin:60px auto}
+.setup-title{font-size:28px;font-weight:700;letter-spacing:-1px;margin-bottom:6px}
+.setup-sub{color:var(--text-muted);font-size:14px;margin-bottom:32px;font-weight:300}
+.form-group{margin-bottom:16px}
+.room-layout{display:grid;grid-template-columns:1fr 320px;gap:20px;padding-top:12px}
+.room-left,.room-right{display:flex;flex-direction:column;gap:16px}
+@media(max-width:760px){.room-layout{grid-template-columns:1fr}.setup-card{margin:32px auto}}
 </style>
 </head>
 <body>
-
 <nav class="nav">
   <a href="../index.html" class="logo"><span class="logo-dot"></span>TryZappit</a>
   <span class="peer-badge">👥 <span id="peer-count">1</span> online</span>
 </nav>
 
-<!-- Loading -->
 <div class="overlay-loading hidden" id="overlay-loading">
   <div class="spinner"></div>
   <div class="loading-text">Creating room...</div>
 </div>
 
-<!-- Setup Form -->
 <div class="page-wrap" id="setup-ui">
   <div class="setup-card card">
     <div class="setup-title">Create a Room</div>
-    <p class="setup-sub">Set your name and start receiving files from anyone with the room code.</p>
-
+    <p class="setup-sub">Set your name and share the code with anyone you want to send files to.</p>
     <div class="form-group">
       <label class="label">Your Display Name</label>
       <input class="input" id="display-name" type="text" placeholder="e.g. Salman" maxlength="30">
     </div>
-
     <div class="form-group">
-      <label class="label">Room Password <span class="optional-tag">optional</span></label>
+      <label class="label">Room Password <span style="font-size:10px;color:var(--text-muted);font-family:var(--mono);margin-left:6px">optional</span></label>
       <input class="input" id="room-password" type="password" placeholder="Leave empty for open room">
     </div>
-
-    <button class="btn btn-primary" id="btn-create" style="width:100%;justify-content:center;margin-top:8px">
-      ⚡ Create Room & Get Code
-    </button>
+    <button class="btn btn-primary" id="btn-create" style="width:100%;justify-content:center;margin-top:8px">⚡ Create Room</button>
   </div>
 </div>
 
-<!-- Room UI -->
 <div class="page-wrap hidden" id="room-ui">
-  <div class="room-header">
-    <div class="room-title">Room Active</div>
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px">
+    <div style="font-size:13px;font-family:var(--mono);color:var(--text-muted)">Room Active</div>
     <span class="peer-badge" style="background:rgba(0,255,136,0.1)">👥 <span id="peer-count-2">1</span> connected</span>
   </div>
-
   <div class="room-layout">
     <div class="room-left">
-
-      <!-- Room Code -->
       <div class="card">
         <div class="section-label">Room Code</div>
-        <div class="room-code-display" id="display-room-id" onclick="copyCode()">——————</div>
+        <div class="room-code-display" id="display-room-id">——————</div>
         <div style="display:flex;gap:8px;margin-top:12px">
           <button class="btn btn-ghost" id="btn-copy-code" style="flex:1;justify-content:center;font-size:12px">Copy Code</button>
-          <button class="btn btn-muted" onclick="toggleQR()" style="flex:1;justify-content:center">QR Code</button>
+          <button class="btn btn-muted" onclick="toggleQR()" style="flex:1;justify-content:center;font-size:12px">QR Code</button>
         </div>
-        <div id="qr-wrap" style="display:none;margin-top:16px;text-align:center">
-          <div id="qr-container"></div>
-        </div>
-        <div class="form-group" style="margin-top:16px;margin-bottom:0">
+        <div id="qr-wrap" style="display:none;margin-top:16px;text-align:center"><div id="qr-container"></div></div>
+        <div style="margin-top:16px">
           <div class="section-label">Share Link</div>
           <div class="share-row">
             <input class="input" id="share-link" readonly style="font-size:12px;font-family:var(--mono)">
@@ -90,7 +68,6 @@
         </div>
       </div>
 
-      <!-- Drop Zone -->
       <div class="card">
         <div class="section-label">Send Files</div>
         <div class="dropzone" id="dropzone">
@@ -99,26 +76,16 @@
           <div class="dropzone-sub">or click to browse — any size, any type</div>
         </div>
         <input type="file" id="file-input" multiple style="display:none">
-
-        <!-- Send Progress -->
         <div class="progress-wrap hidden" id="send-progress-wrap" style="margin-top:14px">
           <div class="progress-header">
             <span class="progress-filename" id="sending-filename">—</span>
             <span class="progress-pct" id="send-progress-pct">0%</span>
           </div>
-          <div class="progress-track">
-            <div class="progress-bar" id="send-progress-bar"></div>
-          </div>
+          <div class="progress-track"><div class="progress-bar" id="send-progress-bar"></div></div>
           <div class="progress-speed" id="send-speed"></div>
         </div>
       </div>
 
-      <!-- Received files -->
-      <div class="card hidden" id="received-files">
-        <div class="section-label">Received Files</div>
-      </div>
-
-      <!-- Receive progress -->
       <div class="card hidden" id="recv-progress-wrap">
         <div class="section-label">Incoming File</div>
         <div class="progress-header">
@@ -129,30 +96,29 @@
         <div class="progress-speed" id="recv-speed"></div>
       </div>
 
+      <div class="card hidden" id="received-files">
+        <div class="section-label">Received Files</div>
+      </div>
     </div>
 
     <div class="room-right">
-      <!-- Peers -->
       <div class="card">
         <div class="section-label">Connected Peers</div>
         <div class="peer-list" id="peer-list">
           <div class="peer-item">
             <span class="peer-dot connected"></span>
-            <span class="peer-name">You (host)</span>
+            <span class="peer-name" id="my-name-display">You (host)</span>
             <span class="peer-status">ready</span>
           </div>
         </div>
-        <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
-          <p style="font-size:11px;color:var(--text-muted);font-family:var(--mono);line-height:1.6">Waiting for peers to join using the room code above.</p>
-        </div>
+        <p style="font-size:11px;color:var(--text-muted);font-family:var(--mono);line-height:1.6;margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">Share the code above — peers appear here when they join.</p>
       </div>
 
-      <!-- Chat -->
       <div class="card">
         <div class="section-label">Chat</div>
         <div class="chat-container">
           <div class="chat-messages" id="chat-messages">
-            <div style="font-size:12px;color:var(--text-muted);font-family:var(--mono);text-align:center;padding:20px 0">Chat is P2P — no logs kept</div>
+            <div style="font-size:11px;color:var(--text-muted);font-family:var(--mono);text-align:center;padding:20px 0" data-placeholder>P2P chat — no logs kept</div>
           </div>
           <div class="chat-input-row">
             <input class="chat-input-field" id="chat-input" type="text" placeholder="Type a message..." maxlength="500">
@@ -164,7 +130,6 @@
   </div>
 </div>
 
-<!-- Preview Modal -->
 <div class="preview-modal hidden" id="preview-modal">
   <div class="preview-header">
     <span class="preview-title" id="preview-title"></span>
@@ -174,44 +139,9 @@
 </div>
 
 <div id="toast"></div>
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 <script>window.ZAPPIT_SERVER = 'https://tryzappit.onrender.com';</script>
 <script src="../js/webrtc.js"></script>
 <script src="../js/app.js"></script>
-<script>
-function copyCode(){
-  const code = document.getElementById('display-room-id')?.textContent;
-  if(code && code !== '——————') {
-    navigator.clipboard.writeText(code).then(()=> UI.showToast('Code copied!','success'));
-  }
-}
-function toggleQR(){
-  const w = document.getElementById('qr-wrap');
-  w.style.display = w.style.display === 'none' ? 'block' : 'none';
-}
-
-// Override showRoom to also show setup→room transition
-const _origShowRoom = UI.showRoom.bind(UI);
-UI.showRoom = function(roomId, displayName) {
-  document.getElementById('setup-ui').classList.add('hidden');
-  document.getElementById('room-ui').classList.remove('hidden');
-  document.getElementById('overlay-loading').classList.add('hidden');
-  const el = document.getElementById('display-room-id');
-  if(el) el.textContent = roomId;
-  const link = `${window.location.origin}/pages/room.html?room=${roomId}`;
-  const linkEl = document.getElementById('share-link');
-  if(linkEl) linkEl.value = link;
-  UI.generateQR(roomId);
-};
-
-const _origUpdatePeerCount = UI.updatePeerCount.bind(UI);
-UI.updatePeerCount = function(count){
-  const el = document.getElementById('peer-count');
-  const el2 = document.getElementById('peer-count-2');
-  if(el) el.textContent = count;
-  if(el2) el2.textContent = count;
-};
-</script>
 </body>
 </html>

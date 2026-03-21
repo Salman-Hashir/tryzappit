@@ -6,23 +6,18 @@
 <title>TryZappit — Receive</title>
 <link rel="stylesheet" href="../css/style.css">
 <style>
-  body { background: var(--dark); }
-  .page-wrap { max-width: 960px; margin: 0 auto; padding: 24px; }
-  .setup-card { max-width: 480px; margin: 60px auto; }
-  .setup-title { font-size: 28px; font-weight: 700; letter-spacing: -1px; margin-bottom: 6px; }
-  .setup-sub { color: var(--text-muted); font-size: 14px; margin-bottom: 32px; font-weight: 300; }
-  .form-group { margin-bottom: 16px; }
-  .optional-tag { font-size: 10px; color: var(--text-muted); font-family: var(--mono); margin-left: 8px; opacity: 0.6; }
-
-  .room-layout { display: grid; grid-template-columns: 1fr 320px; gap: 20px; padding-top: 12px; }
-  .room-left { display: flex; flex-direction: column; gap: 16px; }
-  .room-right { display: flex; flex-direction: column; gap: 16px; }
-
-  @media(max-width: 760px) { .room-layout { grid-template-columns: 1fr; } .setup-card { margin: 32px auto; } }
+body{background:var(--dark)}
+.page-wrap{max-width:960px;margin:0 auto;padding:24px}
+.setup-card{max-width:480px;margin:60px auto}
+.setup-title{font-size:28px;font-weight:700;letter-spacing:-1px;margin-bottom:6px}
+.setup-sub{color:var(--text-muted);font-size:14px;margin-bottom:32px;font-weight:300}
+.form-group{margin-bottom:16px}
+.room-layout{display:grid;grid-template-columns:1fr 320px;gap:20px;padding-top:12px}
+.room-left,.room-right{display:flex;flex-direction:column;gap:16px}
+@media(max-width:760px){.room-layout{grid-template-columns:1fr}.setup-card{margin:32px auto}}
 </style>
 </head>
 <body>
-
 <nav class="nav">
   <a href="../index.html" class="logo"><span class="logo-dot"></span>TryZappit</a>
   <span class="peer-badge">👥 <span id="peer-count">1</span> online</span>
@@ -33,65 +28,46 @@
   <div class="loading-text">Joining room...</div>
 </div>
 
-<!-- Join Form -->
 <div class="page-wrap" id="setup-ui">
   <div class="setup-card card">
     <div class="setup-title">Join a Room</div>
-    <p class="setup-sub">Enter the room code shared with you to receive files directly.</p>
-
+    <p class="setup-sub">Enter the room code from the sender to receive files directly.</p>
     <div class="form-group">
       <label class="label">Room Code</label>
       <input class="input input-code" id="room-code" type="text" placeholder="ABC123" maxlength="6" autocomplete="off" spellcheck="false">
     </div>
-
     <div class="form-group">
       <label class="label">Your Display Name</label>
       <input class="input" id="display-name" type="text" placeholder="e.g. Ahmed" maxlength="30">
     </div>
-
     <div class="form-group">
-      <label class="label">Password <span class="optional-tag">if required</span></label>
+      <label class="label">Password <span style="font-size:10px;color:var(--text-muted);font-family:var(--mono);margin-left:6px">if required</span></label>
       <input class="input" id="room-password" type="password" placeholder="Leave empty if no password">
     </div>
-
-    <button class="btn btn-primary" id="btn-join" style="width:100%;justify-content:center;margin-top:8px">
-      Join Room →
-    </button>
-
-    <p style="margin-top:16px;font-size:12px;color:var(--text-muted);text-align:center;font-family:var(--mono)">
-      No code? Ask the sender to share their room link or QR.
-    </p>
+    <button class="btn btn-primary" id="btn-join" style="width:100%;justify-content:center;margin-top:8px">Join Room →</button>
+    <p style="margin-top:14px;font-size:12px;color:var(--text-muted);text-align:center;font-family:var(--mono)">No code? Ask sender for their room link or QR.</p>
   </div>
 </div>
 
-<!-- Room UI -->
 <div class="page-wrap hidden" id="room-ui">
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px">
     <div style="font-size:13px;font-family:var(--mono);color:var(--text-muted)">Room Active</div>
     <span class="peer-badge" style="background:rgba(0,255,136,0.1)">👥 <span id="peer-count-2">1</span> connected</span>
   </div>
-
   <div class="room-layout">
     <div class="room-left">
-
-      <!-- Room Code Display -->
       <div class="card">
         <div class="section-label">Room Code</div>
         <div class="room-code-display" id="display-room-id">——————</div>
         <div style="display:flex;gap:8px;margin-top:12px">
           <button class="btn btn-ghost" id="btn-copy-code" style="flex:1;justify-content:center;font-size:12px">Copy Code</button>
-          <button class="btn btn-muted" onclick="toggleQR()" style="flex:1;justify-content:center">QR Code</button>
+          <button class="btn btn-muted" onclick="toggleQR()" style="flex:1;justify-content:center;font-size:12px">QR Code</button>
         </div>
-        <div id="qr-wrap" style="display:none;margin-top:16px;text-align:center">
-          <div id="qr-container"></div>
-        </div>
+        <div id="qr-wrap" style="display:none;margin-top:16px;text-align:center"><div id="qr-container"></div></div>
       </div>
 
-      <!-- Received Files -->
       <div class="card">
         <div class="section-label">Incoming Files</div>
-
-        <!-- Receive Progress -->
         <div class="hidden" id="recv-progress-wrap">
           <div class="progress-wrap" style="margin-bottom:14px">
             <div class="progress-header">
@@ -102,15 +78,10 @@
             <div class="progress-speed" id="recv-speed"></div>
           </div>
         </div>
-
-        <div style="font-size:12px;color:var(--text-muted);font-family:var(--mono);padding:20px 0;text-align:center" id="waiting-msg">
-          Waiting for sender to drop files...
-        </div>
-
+        <div style="font-size:12px;color:var(--text-muted);font-family:var(--mono);padding:20px 0;text-align:center" id="waiting-msg">Waiting for sender to drop files...</div>
         <div id="received-files" class="received-files"></div>
       </div>
 
-      <!-- You can also send files! -->
       <div class="card">
         <div class="section-label">Send Files Too</div>
         <div class="dropzone" id="dropzone" style="padding:28px 16px">
@@ -119,7 +90,6 @@
           <div class="dropzone-sub">Drop or click to browse</div>
         </div>
         <input type="file" id="file-input" multiple style="display:none">
-
         <div class="hidden" id="send-progress-wrap" style="margin-top:14px">
           <div class="progress-wrap">
             <div class="progress-header">
@@ -131,28 +101,25 @@
           </div>
         </div>
       </div>
-
     </div>
 
     <div class="room-right">
-      <!-- Peers -->
       <div class="card">
         <div class="section-label">Connected Peers</div>
         <div class="peer-list" id="peer-list">
           <div class="peer-item">
             <span class="peer-dot connected"></span>
-            <span class="peer-name">You</span>
+            <span class="peer-name" id="my-name-display">You</span>
             <span class="peer-status">ready</span>
           </div>
         </div>
       </div>
 
-      <!-- Chat -->
       <div class="card">
         <div class="section-label">Chat</div>
         <div class="chat-container">
           <div class="chat-messages" id="chat-messages">
-            <div style="font-size:12px;color:var(--text-muted);font-family:var(--mono);text-align:center;padding:20px 0">P2P chat — no logs</div>
+            <div style="font-size:11px;color:var(--text-muted);font-family:var(--mono);text-align:center;padding:20px 0" data-placeholder>P2P chat — no logs</div>
           </div>
           <div class="chat-input-row">
             <input class="chat-input-field" id="chat-input" type="text" placeholder="Message..." maxlength="500">
@@ -164,7 +131,6 @@
   </div>
 </div>
 
-<!-- Preview Modal -->
 <div class="preview-modal hidden" id="preview-modal">
   <div class="preview-header">
     <span class="preview-title" id="preview-title"></span>
@@ -174,50 +140,9 @@
 </div>
 
 <div id="toast"></div>
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 <script>window.ZAPPIT_SERVER = 'https://tryzappit.onrender.com';</script>
 <script src="../js/webrtc.js"></script>
 <script src="../js/app.js"></script>
-<script>
-function toggleQR(){
-  const w = document.getElementById('qr-wrap');
-  w.style.display = w.style.display === 'none' ? 'block' : 'none';
-}
-
-// Pre-fill code from URL
-window.addEventListener('DOMContentLoaded', () => {
-  const params = new URLSearchParams(window.location.search);
-  const code = params.get('room');
-  if(code) {
-    const inp = document.getElementById('room-code');
-    if(inp) inp.value = code.toUpperCase();
-  }
-});
-
-// Override showRoom
-UI.showRoom = function(roomId, displayName) {
-  document.getElementById('setup-ui').classList.add('hidden');
-  document.getElementById('room-ui').classList.remove('hidden');
-  document.getElementById('overlay-loading').classList.add('hidden');
-  const el = document.getElementById('display-room-id');
-  if(el) el.textContent = roomId;
-  UI.generateQR(roomId);
-};
-
-// Override showFileComplete to hide waiting msg
-const _origShowFileComplete = UI.showFileComplete.bind(UI);
-UI.showFileComplete = function(data) {
-  document.getElementById('waiting-msg')?.classList.add('hidden');
-  _origShowFileComplete(data);
-};
-
-UI.updatePeerCount = function(count){
-  const el = document.getElementById('peer-count');
-  const el2 = document.getElementById('peer-count-2');
-  if(el) el.textContent = count;
-  if(el2) el2.textContent = count;
-};
-</script>
 </body>
 </html>
