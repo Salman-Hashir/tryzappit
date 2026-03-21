@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TryZappit — Room</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+  body { background: var(--dark); }
+  .page-wrap { max-width: 960px; margin: 0 auto; padding: 24px; }
+  .room-layout { display: grid; grid-template-columns: 1fr 320px; gap: 20px; padding-top: 12px; }
+  .room-left { display: flex; flex-direction: column; gap: 16px; }
+  .room-right { display: flex; flex-direction: column; gap: 16px; }
+
+  .join-form-card { max-width: 440px; margin: 60px auto; }
+  .join-title { font-size: 22px; font-weight: 700; margin-bottom: 6px; letter-spacing: -0.5px; }
+  .join-sub { color: var(--text-muted); font-size: 13px; margin-bottom: 24px; }
+
+  @media(max-width: 760px) { .room-layout { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <a href="../index.html" class="logo"><span class="logo-dot"></span>TryZappit</a>
+  <span class="peer-badge">👥 <span id="peer-count">1</span> online</span>
+</nav>
+
+<div class="overlay-loading hidden" id="overlay-loading">
+  <div class="spinner"></div>
+  <div class="loading-text" id="loading-text">Connecting...</div>
+</div>
+
+<!-- Name entry (shown if no name in localStorage) -->
+<div class="page-wrap hidden" id="name-ui">
+  <div class="join-form-card card">
+    <div class="join-title">Joining Room</div>
+    <div class="join-sub" id="join-room-label">Enter your name to join</div>
+    <div class="form-group" style="margin-bottom:16px">
+      <label class="label">Your Name</label>
+      <input class="input" id="display-name" type="text" placeholder="Anonymous" maxlength="30">
+    </div>
+    <div class="form-group" style="margin-bottom:16px" id="pass-wrap">
+      <label class="label">Room Password <span style="font-size:10px;color:var(--text-muted);font-family:var(--mono)">(if required)</span></label>
+      <input class="input" id="room-password" type="password" placeholder="Leave empty if none">
+    </div>
+    <button class="btn btn-primary" id="btn-join-room" style="width:100%;justify-content:center">Join →</button>
+  </div>
+</div>
+
+<!-- Room UI -->
+<div class="page-wrap hidden" id="room-ui">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px">
+    <div>
+      <div style="font-size:11px;font-family:var(--mono);color:var(--text-muted);letter-spacing:1px;margin-bottom:4px">ROOM</div>
+      <div style="font-family:var(--mono);font-size:22px;font-weight:700;color:var(--green);letter-spacing:6px;text-shadow:0 0 16px rgba(0,255,136,0.3)" id="display-room-id">——</div>
+    </div>
+    <span class="peer-badge" style="background:rgba(0,255,136,0.08)">👥 <span id="peer-count-2">1</span> connected</span>
+  </div>
+
+  <div class="room-layout">
+    <div class="room-left">
+
+      <!-- Share card -->
+      <div class="card">
+        <div class="section-label">Invite Others</div>
+        <div style="display:flex;gap:8px;margin-bottom:12px">
+          <button class="btn btn-ghost" id="btn-copy-code" style="flex:1;justify-content:center;font-size:12px">Copy Code</button>
+          <button class="btn btn-muted" onclick="toggleQR()" style="flex:1;justify-content:center;font-size:12px">QR Code</button>
+        </div>
+        <div id="qr-wrap" style="display:none;margin-bottom:12px;text-align:center">
+          <div id="qr-container"></div>
+        </div>
+        <div class="share-row">
+          <input class="input" id="share-link" readonly style="font-size:12px;font-family:var(--mono)">
+          <button class="btn btn-ghost" id="btn-copy-link" style="font-size:12px;white-space:nowrap">Copy</button>
+        </div>
+      </div>
+
+      <!-- Send -->
+      <div class="card">
+        <div class="section-label">Send Files</div>
+        <div class="dropzone" id="dropzone">
+          <span class="dropzone-icon">📁</span>
+          <div class="dropzone-title">Drop files here</div>
+          <div class="dropzone-sub">Click to browse — any file, any size</div>
+        </div>
+        <input type="file" id="file-input" multiple style="display:none">
+        <div class="hidden" id="send-progress-wrap" style="margin-top:14px">
+          <div class="progress-wrap">
+            <div class="progress-header">
+              <span class="progress-filename" id="sending-filename">—</span>
+              <span class="progress-pct" id="send-progress-pct">0%</span>
+            </div>
+            <div class="progress-track"><div class="progress-bar" id="send-progress-bar"></div></div>
+            <div class="progress-speed" id="send-speed"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Receive -->
+      <div class="card hidden" id="recv-progress-wrap">
+        <div class="section-label">Incoming File</div>
+        <div class="progress-wrap">
+          <div class="progress-header">
+            <span class="progress-filename" id="recv-filename">—</span>
+            <span class="progress-pct" id="recv-progress-pct">0%</span>
+          </div>
+          <div class="progress-track"><div class="progress-bar" id="recv-progress-bar"></div></div>
+          <div class="progress-speed" id="recv-speed"></div>
+        </div>
+      </div>
+
+      <!-- Received files list -->
+      <div class="card hidden" id="received-files">
+        <div class="section-label">Received Files</div>
+      </div>
+
+    </div>
+
+    <div class="room-right">
+      <!-- Peers -->
+      <div class="card">
+        <div class="section-label">Peers</div>
+        <div class="peer-list" id="peer-list">
+          <div class="peer-item">
+            <span class="peer-dot connected"></span>
+            <span class="peer-name" id="my-name-display">You</span>
+            <span class="peer-status">ready</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Chat -->
+      <div class="card">
+        <div class="section-label">Chat</div>
+        <div class="chat-container">
+          <div class="chat-messages" id="chat-messages">
+            <div style="font-size:11px;color:var(--text-muted);font-family:var(--mono);text-align:center;padding:16px 0">P2P — no logs kept</div>
+          </div>
+          <div class="chat-input-row">
+            <input class="chat-input-field" id="chat-input" type="text" placeholder="Message..." maxlength="500">
+            <button class="chat-send-btn" id="chat-send">SEND</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Preview Modal -->
+<div class="preview-modal hidden" id="preview-modal">
+  <div class="preview-header">
+    <span class="preview-title" id="preview-title"></span>
+    <button class="preview-close" onclick="closePreview()">Close ✕</button>
+  </div>
+  <div class="preview-content" id="preview-content"></div>
+</div>
+
+<div id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+<script>window.ZAPPIT_SERVER = 'https://tryzappit-server.onrender.com';</script>
+<script src="../js/webrtc.js"></script>
+<script src="../js/app.js"></script>
+<script>
+function toggleQR(){
+  const w = document.getElementById('qr-wrap');
+  w.style.display = w.style.display === 'none' ? 'block' : 'none';
+}
+
+// Override showRoom for this page
+UI.showRoom = function(roomId, displayName) {
+  document.getElementById('name-ui').classList.add('hidden');
+  document.getElementById('room-ui').classList.remove('hidden');
+  document.getElementById('overlay-loading').classList.add('hidden');
+  const el = document.getElementById('display-room-id');
+  if(el) el.textContent = roomId;
+  const nameEl = document.getElementById('my-name-display');
+  if(nameEl) nameEl.textContent = `You (${displayName})`;
+  const link = `${window.location.origin}/pages/room.html?room=${roomId}`;
+  const linkEl = document.getElementById('share-link');
+  if(linkEl) linkEl.value = link;
+  UI.generateQR(roomId);
+};
+
+UI.updatePeerCount = function(count){
+  ['peer-count','peer-count-2'].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el) el.textContent = count;
+  });
+};
+
+// Room page init
+window.addEventListener('DOMContentLoaded', () => {
+  const params = new URLSearchParams(window.location.search);
+  const roomId = params.get('room');
+  const savedName = localStorage.getItem('zappit_name');
+
+  if(roomId) {
+    document.getElementById('join-room-label').textContent = `Joining room ${roomId}`;
+    if(savedName) {
+      // Auto-join
+      document.getElementById('overlay-loading').classList.remove('hidden');
+      window.zappit.joinRoom(roomId, savedName, null);
+    } else {
+      document.getElementById('name-ui').classList.remove('hidden');
+      const joinBtn = document.getElementById('btn-join-room');
+      joinBtn?.addEventListener('click', () => {
+        const name = document.getElementById('display-name')?.value || 'Anonymous';
+        const pass = document.getElementById('room-password')?.value || null;
+        localStorage.setItem('zappit_name', name);
+        document.getElementById('name-ui').classList.add('hidden');
+        document.getElementById('overlay-loading').classList.remove('hidden');
+        window.zappit.joinRoom(roomId, name, pass);
+      });
+    }
+  } else {
+    // No room — create one
+    document.getElementById('loading-text').textContent = 'Creating room...';
+    document.getElementById('overlay-loading').classList.remove('hidden');
+    const name = savedName || 'Anonymous';
+    window.zappit.createRoom(name, null);
+  }
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TryZappit — Zap Files. No Servers. No Limits.</title>
+<meta name="description" content="P2P file transfer. No uploads, no storage, no size limits. Direct browser to browser.">
+<link rel="stylesheet" href="css/style.css">
+<style>
+  #canvas { position: fixed; top:0; left:0; width:100%; height:100%; z-index:0; }
+  .vignette { position:fixed; inset:0; z-index:1; pointer-events:none; background:radial-gradient(ellipse at center, transparent 35%, rgba(0,0,0,0.88) 100%); }
+  .noise { position:fixed; inset:0; z-index:2; pointer-events:none; opacity:0.03; background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); background-size:256px; }
+  .scanline { position:fixed; top:0; left:0; width:100%; height:2px; background:linear-gradient(to right,transparent,var(--green),transparent); opacity:0; z-index:3; animation:scan 7s linear infinite; pointer-events:none; }
+  @keyframes scan { 0%{top:0;opacity:0} 5%{opacity:0.25} 95%{opacity:0.08} 100%{top:100vh;opacity:0} }
+  .page { position:relative; z-index:10; min-height:100vh; display:flex; flex-direction:column; }
+
+  .hero { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:60px 24px 20px; }
+  .badge { display:inline-flex; align-items:center; gap:8px; background:rgba(0,255,136,0.07); border:1px solid rgba(0,255,136,0.22); border-radius:100px; padding:5px 16px; font-family:var(--mono); font-size:10px; color:var(--green-dim); letter-spacing:2px; text-transform:uppercase; margin-bottom:32px; animation:fadeUp 0.8s ease both; }
+  .badge-dot { width:5px; height:5px; background:var(--green); border-radius:50%; box-shadow:0 0 6px var(--green); animation:pulse 1.5s ease-in-out infinite; }
+  .hero-title { font-size:clamp(48px,8vw,88px); font-weight:700; line-height:1; letter-spacing:-3px; margin-bottom:20px; animation:fadeUp 0.8s 0.1s ease both; }
+  .hero-title .accent { color:var(--green); text-shadow:0 0 40px rgba(0,255,136,0.35); }
+  .cursor-blink { display:inline-block; width:3px; height:0.85em; background:var(--green); margin-left:2px; vertical-align:middle; animation:blink 1s step-end infinite; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+  .hero-sub { font-size:clamp(15px,2vw,19px); color:var(--text-muted); max-width:500px; line-height:1.75; margin-bottom:48px; font-weight:300; animation:fadeUp 0.8s 0.2s ease both; }
+  .hero-buttons { display:flex; gap:14px; flex-wrap:wrap; justify-content:center; animation:fadeUp 0.8s 0.3s ease both; margin-bottom:48px; }
+
+  .stats { display:flex; justify-content:center; gap:48px; padding:0 24px 48px; animation:fadeUp 0.8s 0.4s ease both; flex-wrap:wrap; }
+  .stat { text-align:center; }
+  .stat-num { font-family:var(--mono); font-size:28px; font-weight:700; color:var(--green); display:block; text-shadow:0 0 16px rgba(0,255,136,0.3); }
+  .stat-label { font-size:11px; color:var(--text-muted); letter-spacing:1.5px; text-transform:uppercase; margin-top:4px; display:block; font-family:var(--mono); }
+
+  .features { padding:60px 48px 40px; max-width:1060px; margin:0 auto; width:100%; }
+  .features-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(290px,1fr)); gap:1px; background:var(--border); border:1px solid var(--border); }
+  .feature-card { background:rgba(5,10,7,0.92); padding:32px 28px; transition:background 0.3s; }
+  .feature-card:hover { background:rgba(0,255,136,0.035); }
+  .feature-icon { font-size:22px; margin-bottom:16px; display:block; }
+  .feature-title { font-size:16px; font-weight:600; margin-bottom:8px; }
+  .feature-desc { font-size:13px; color:var(--text-muted); line-height:1.7; font-weight:300; }
+
+  .how { padding:60px 48px; max-width:1060px; margin:0 auto; width:100%; }
+  .steps { display:flex; gap:0; flex-wrap:wrap; }
+  .step { flex:1; min-width:180px; padding:28px 24px; position:relative; }
+  .step::after { content:'→'; position:absolute; right:-10px; top:40px; color:var(--green); font-size:18px; opacity:0.3; }
+  .step:last-child::after { display:none; }
+  .step-num { font-family:var(--mono); font-size:10px; color:var(--green); letter-spacing:2px; margin-bottom:14px; display:block; opacity:0.6; }
+  .step-title { font-size:17px; font-weight:600; margin-bottom:8px; }
+  .step-desc { font-size:13px; color:var(--text-muted); line-height:1.6; font-weight:300; }
+
+  .cta-section { padding:60px 24px 80px; text-align:center; position:relative; }
+  .cta-glow { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:500px; height:250px; background:radial-gradient(ellipse,rgba(0,255,136,0.06) 0%,transparent 70%); pointer-events:none; }
+  .cta-title { font-size:clamp(32px,5vw,56px); font-weight:700; letter-spacing:-2px; margin-bottom:14px; }
+  .cta-sub { color:var(--text-muted); font-size:15px; margin-bottom:32px; font-weight:300; }
+  .room-input-wrap { display:flex; max-width:420px; margin:0 auto 14px; border:1px solid var(--border-bright); border-radius:4px; overflow:hidden; }
+  .room-code-inp { flex:1; background:rgba(0,255,136,0.04); border:none; outline:none; font-family:var(--mono); font-size:17px; color:var(--green); padding:14px 18px; letter-spacing:5px; text-transform:uppercase; }
+  .room-code-inp::placeholder { color:rgba(0,255,136,0.2); letter-spacing:2px; font-size:12px; }
+  .room-join-btn { background:var(--green); border:none; color:#000; font-family:var(--mono); font-size:12px; font-weight:700; padding:14px 20px; cursor:pointer; letter-spacing:0.8px; text-transform:uppercase; transition:all 0.2s; }
+  .room-join-btn:hover { background:#00ffaa; }
+  .or-div { color:var(--text-muted); font-size:11px; letter-spacing:2px; text-transform:uppercase; margin:14px 0; font-family:var(--mono); }
+
+  footer { border-top:1px solid var(--border); padding:24px 48px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; }
+  .footer-logo { font-family:var(--mono); font-size:13px; color:var(--green); opacity:0.5; }
+  .footer-text { font-size:11px; color:var(--text-muted); font-family:var(--mono); }
+
+  @keyframes fadeUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+  @media(max-width:768px) { .features,.how{padding:40px 20px} .steps{flex-direction:column} .step::after{display:none} footer{flex-direction:column;text-align:center;padding:20px} .stats{gap:28px} }
+</style>
+</head>
+<body>
+
+<canvas id="canvas"></canvas>
+<div class="vignette"></div>
+<div class="noise"></div>
+<div class="scanline"></div>
+
+<div class="page">
+  <nav class="nav">
+    <a href="index.html" class="logo"><span class="logo-dot"></span>TryZappit</a>
+    <div style="display:flex;gap:12px;align-items:center">
+      <a href="pages/receive.html" style="color:var(--text-muted);text-decoration:none;font-size:13px;font-family:var(--mono)">Receive</a>
+      <a href="pages/send.html" class="btn btn-ghost" style="padding:10px 20px;font-size:12px">Send File →</a>
+    </div>
+  </nav>
+
+  <div class="hero">
+    <div class="badge"><span class="badge-dot"></span>P2P · Zero Storage · No Size Limit</div>
+    <h1 class="hero-title">Zap files.<br><span class="accent">Instantly.<span class="cursor-blink"></span></span></h1>
+    <p class="hero-sub">No servers. No uploads. No size limits.<br>Direct browser-to-browser — anywhere on earth.</p>
+    <div class="hero-buttons">
+      <button class="btn btn-primary" id="btn-send">⚡ Send a File</button>
+      <button class="btn btn-ghost" id="btn-receive">Receive File</button>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><span class="stat-num">0ms</span><span class="stat-label">Server delay</span></div>
+    <div class="stat"><span class="stat-num">∞</span><span class="stat-label">File size</span></div>
+    <div class="stat"><span class="stat-num">100%</span><span class="stat-label">Private</span></div>
+    <div class="stat"><span class="stat-num">P2P</span><span class="stat-label">Direct</span></div>
+  </div>
+
+  <div class="features">
+    <div class="section-label">Features</div>
+    <div class="features-grid">
+      <div class="feature-card"><span class="feature-icon">⚡</span><div class="feature-title">Zero Upload</div><p class="feature-desc">Files fly directly browser-to-browser. Never touches a server. Never stored anywhere.</p></div>
+      <div class="feature-card"><span class="feature-icon">👥</span><div class="feature-title">Group Share</div><p class="feature-desc">One file to multiple people at once. Create a room, invite everyone, send once.</p></div>
+      <div class="feature-card"><span class="feature-icon">💬</span><div class="feature-title">P2P Chat</div><p class="feature-desc">Chat while transferring. Messages are peer-to-peer — no logs, disappears when done.</p></div>
+      <div class="feature-card"><span class="feature-icon">👁</span><div class="feature-title">File Preview</div><p class="feature-desc">Preview images, videos, audio and PDFs in the browser. No download needed.</p></div>
+      <div class="feature-card"><span class="feature-icon">🔐</span><div class="feature-title">Password Rooms</div><p class="feature-desc">Lock your room. Only people with the code AND password can join your session.</p></div>
+      <div class="feature-card"><span class="feature-icon">📱</span><div class="feature-title">All Platforms</div><p class="feature-desc">Chrome, Safari, Firefox, Edge. Mobile and desktop. No install needed — just a browser.</p></div>
+    </div>
+  </div>
+
+  <div class="how">
+    <div class="section-label">How it works</div>
+    <div class="steps">
+      <div class="step"><span class="step-num">01 —</span><div class="step-title">Create Room</div><p class="step-desc">Click Send. Get a unique room code, link, and QR instantly.</p></div>
+      <div class="step"><span class="step-num">02 —</span><div class="step-title">Share Code</div><p class="step-desc">Send the link via WhatsApp or let them scan the QR. Join in seconds.</p></div>
+      <div class="step"><span class="step-num">03 —</span><div class="step-title">Drop & Zap</div><p class="step-desc">Drag any file. Watch it stream peer-to-peer in real time. No size limits.</p></div>
+      <div class="step"><span class="step-num">04 —</span><div class="step-title">Done</div><p class="step-desc">Transfer complete. Room closes. No trace on any server. Gone forever.</p></div>
+    </div>
+  </div>
+
+  <div class="cta-section">
+    <div class="cta-glow"></div>
+    <h2 class="cta-title">Ready to <span style="color:var(--green)">Zappit?</span></h2>
+    <p class="cta-sub">Enter a room code or create a new session</p>
+    <div class="room-input-wrap">
+      <input class="room-code-inp" id="room-code-input" type="text" placeholder="Enter code..." maxlength="6">
+      <button class="room-join-btn" id="btn-join">Join →</button>
+    </div>
+    <div class="or-div">— or —</div>
+    <button class="btn btn-primary" id="btn-create-room">Create New Room</button>
+  </div>
+
+  <footer>
+    <div class="footer-logo">TryZappit</div>
+    <div class="footer-text">No servers. No storage. No tracking. Pure P2P.</div>
+    <div class="footer-text">Built with WebRTC + Socket.io</div>
+  </footer>
+</div>
+
+<div id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// Wormhole Three.js
+const canvas = document.getElementById('canvas');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setClearColor(0x000000, 1);
+const scene = new THREE.Scene();
+scene.fog = new THREE.FogExp2(0x000000, 0.1);
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 100);
+class WCurve extends THREE.Curve {
+  getPoint(t) {
+    const a = t * Math.PI * 8;
+    return new THREE.Vector3(Math.sin(a)*0.12, Math.cos(a*0.7)*0.08, t*30-15);
+  }
+}
+const curve = new WCurve();
+const wGeo = new THREE.TubeGeometry(curve, 300, 1.8, 12, false);
+scene.add(new THREE.Mesh(wGeo, new THREE.MeshBasicMaterial({ color:0x001a0a, side:THREE.BackSide })));
+const wGeo2 = new THREE.TubeGeometry(curve, 300, 1.8, 12, false);
+const wMat = new THREE.MeshBasicMaterial({ color:0x00FF88, side:THREE.BackSide, wireframe:true, transparent:true, opacity:0.09 });
+scene.add(new THREE.Mesh(wGeo2, wMat));
+const pos = new Float32Array(1500*3), col = new Float32Array(1500*3);
+for(let i=0;i<1500;i++){
+  const t=Math.random(), a=Math.random()*Math.PI*2, r=(0.1+Math.random()*0.85)*1.8;
+  const p=curve.getPoint(t), tan=curve.getTangent(t);
+  const n=new THREE.Vector3(-tan.y,tan.x,0).normalize(), b=new THREE.Vector3().crossVectors(tan,n);
+  pos[i*3]=p.x+(Math.cos(a)*n.x+Math.sin(a)*b.x)*r;
+  pos[i*3+1]=p.y+(Math.cos(a)*n.y+Math.sin(a)*b.y)*r;
+  pos[i*3+2]=p.z+(Math.cos(a)*n.z+Math.sin(a)*b.z)*r;
+  const br=0.3+Math.random()*0.7; col[i*3]=0; col[i*3+1]=br; col[i*3+2]=br*0.5;
+}
+const pGeo=new THREE.BufferGeometry();
+pGeo.setAttribute('position',new THREE.BufferAttribute(pos,3));
+pGeo.setAttribute('color',new THREE.BufferAttribute(col,3));
+scene.add(new THREE.Points(pGeo, new THREE.PointsMaterial({size:0.022,vertexColors:true,transparent:true,opacity:0.55})));
+let prog=0;
+function animate(){
+  requestAnimationFrame(animate);
+  prog+=0.00022;
+  if(prog>1)prog=0;
+  const t=prog%1, pt=curve.getPoint(t), tan=curve.getTangent(t);
+  camera.position.set(pt.x,pt.y,pt.z);
+  camera.lookAt(pt.x+tan.x,pt.y+tan.y,pt.z+tan.z);
+  camera.rotation.z=Math.sin(Date.now()*0.0003)*0.07;
+  wMat.opacity=0.07+Math.sin(Date.now()*0.001)*0.04;
+  renderer.render(scene,camera);
+}
+animate();
+window.addEventListener('resize',()=>{
+  camera.aspect=window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth,window.innerHeight);
+});
+</script>
+<script src="js/app.js"></script>
+</body>
+</html>

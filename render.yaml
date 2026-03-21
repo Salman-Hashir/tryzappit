@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: tryzappit-server
+    env: node
+    buildCommand: cd server && npm install
+    startCommand: cd server && node index.js
+    envVars:
+      - key: PORT
+        value: 3001
