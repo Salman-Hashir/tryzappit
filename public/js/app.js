@@ -15,6 +15,11 @@ class TryZappit {
   }
 
   init() {
+    // Pre-warm the free-tier Render backend in the background as soon as page loads
+    try {
+      fetch(SERVER_URL, { mode: 'no-cors' }).catch(() => {});
+    } catch(e) {}
+
     const path = window.location.pathname;
     const params = new URLSearchParams(window.location.search);
     const roomFromUrl = params.get('room');
@@ -32,12 +37,27 @@ class TryZappit {
 
   // ─── SOCKET ────────────────────────────────────────────────
   connectSocket(onReady) {
+    if (this.socket) {
+      if (this.socket.connected) {
+        onReady && onReady();
+      } else {
+        this.socket.once('connect', () => {
+          onReady && onReady();
+        });
+      }
+      return;
+    }
+
     console.log('[Socket] Connecting to:', SERVER_URL);
+    const loadingText = document.querySelector('.loading-text');
+    if (loadingText) loadingText.textContent = 'Connecting to server... (waking up server if idle)';
+
     this.socket = io(SERVER_URL, {
       transports: ['websocket', 'polling'],
       reconnection: true,
-      reconnectionAttempts: 5,
-      timeout: 10000
+      reconnectionAttempts: 8,
+      reconnectionDelay: 2000,
+      timeout: 45000 // 45 seconds for Render free tier wakeups
     });
 
     this.socket.on('connect', () => {
@@ -46,15 +66,22 @@ class TryZappit {
       onReady && onReady();
     });
 
+    let connectAttempts = 0;
     this.socket.on('connect_error', (err) => {
-      console.error('[Socket] Error:', err.message);
-      UI.showToast('Cannot connect to server. Check your internet.', 'error');
-      document.getElementById('overlay-loading')?.classList.add('hidden');
+      connectAttempts++;
+      console.warn('[Socket] Attempt ' + connectAttempts + ' error:', err.message);
+      if (loadingText) {
+        loadingText.textContent = 'Waking up server (free tier may take ~30s)...';
+      }
+      if (connectAttempts >= 8) {
+        UI.showToast('Server connection timed out. Please refresh.', 'error');
+        document.getElementById('overlay-loading')?.classList.add('hidden');
+      }
     });
 
     this.socket.on('disconnect', (reason) => {
       console.log('[Socket] Disconnected:', reason);
-      UI.showToast('Connection lost: ' + reason, 'error');
+      UI.showToast('Connection lost: ' + reason, 'warn');
     });
 
     this.socket.on('error', ({ message }) => {
@@ -197,10 +224,27 @@ class TryZappit {
   }
 
   async sendFiles(files) {
+    if (!files || files.length === 0) return;
+
     if (!this.connManager || this.connManager.getPeerCount() === 0) {
       UI.showToast('No peers connected yet! Share the room code first.', 'warn');
       return;
     }
+
+    // If peer is connected to room but WebRTC P2P channel is still finishing handshake, wait up to 4s
+    if (this.connManager.getReadyPeerCount() === 0) {
+      UI.showToast('Establishing direct P2P link... please wait.', 'info');
+      let waited = 0;
+      while (waited < 4000 && this.connManager.getReadyPeerCount() === 0) {
+        await new Promise(r => setTimeout(r, 400));
+        waited += 400;
+      }
+      if (this.connManager.getReadyPeerCount() === 0) {
+        UI.showToast('P2P connection is still connecting. Please try again in 5 seconds.', 'warn');
+        return;
+      }
+    }
+
     for (const file of files) this.transferQueue.push(file);
     if (!this.isTransferring) this._processQueue();
   }
@@ -222,8 +266,9 @@ class TryZappit {
     } catch(e) {
       console.error('[Send] Error:', e);
       UI.showToast('Failed to send "' + file.name + '": ' + e.message, 'error');
+    } finally {
+      setTimeout(() => this._processQueue(), 300);
     }
-    setTimeout(() => this._processQueue(), 300);
   }
 
   sendChat(message) {
@@ -409,10 +454,27 @@ const UI = {
     const list = document.getElementById('peer-list');
     if (!list) return;
     if (document.getElementById('peer-' + peerId)) return; // already exists
+
     const item = document.createElement('div');
     item.id = 'peer-' + peerId;
     item.className = 'peer-item';
-    item.innerHTML = '<span class="peer-dot" id="dot-' + peerId + '"></span><span class="peer-name">' + escapeHtml(displayName) + '</span><span class="peer-status" id="status-' + peerId + '">connecting...</span>';
+
+    const dot = document.createElement('span');
+    dot.className = 'peer-dot';
+    dot.id = 'dot-' + peerId;
+
+    const name = document.createElement('span');
+    name.className = 'peer-name';
+    name.textContent = displayName || 'Anonymous';
+
+    const status = document.createElement('span');
+    status.className = 'peer-status';
+    status.id = 'status-' + peerId;
+    status.textContent = 'connecting...';
+
+    item.appendChild(dot);
+    item.appendChild(name);
+    item.appendChild(status);
     list.appendChild(item);
   },
 
@@ -469,36 +531,89 @@ const UI = {
 
     const url = URL.createObjectURL(data.blob);
     const icon = getFileIcon(data.fileType);
-    const isPreviewable = data.fileType?.startsWith('image/') || data.fileType?.startsWith('video/') || data.fileType?.startsWith('audio/') || data.fileType === 'application/pdf';
+    const safeType = typeof data.fileType === 'string' ? data.fileType.toLowerCase() : '';
+    const isSafeImage = (safeType.startsWith('image/') && !safeType.includes('svg'));
+    const isSafeMedia = safeType.startsWith('video/') || safeType.startsWith('audio/');
+    const isSafePdf = safeType === 'application/pdf';
+    const isPreviewable = isSafeImage || isSafeMedia || isSafePdf;
+    const safeName = typeof data.name === 'string' ? data.name : 'downloaded_file';
 
     const item = document.createElement('div');
     item.className = 'received-file-item';
-    item.innerHTML = '<div class="file-icon">' + icon + '</div><div class="file-info"><span class="file-name">' + escapeHtml(data.name) + '</span><span class="file-size">' + formatBytes(data.blob.size) + '</span></div><div class="file-actions">' +
-      (isPreviewable ? '<button class="btn-preview" onclick="showPreview(\'' + url + '\',\'' + data.fileType + '\',\'' + escapeHtml(data.name) + '\')">Preview</button>' : '') +
-      '<a href="' + url + '" download="' + escapeHtml(data.name) + '" class="btn-download">Download</a></div>';
+
+    const iconDiv = document.createElement('div');
+    iconDiv.className = 'file-icon';
+    iconDiv.textContent = icon;
+    item.appendChild(iconDiv);
+
+    const infoDiv = document.createElement('div');
+    infoDiv.className = 'file-info';
+
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'file-name';
+    nameSpan.textContent = safeName;
+
+    const sizeSpan = document.createElement('span');
+    sizeSpan.className = 'file-size';
+    sizeSpan.textContent = formatBytes(data.blob.size);
+
+    infoDiv.appendChild(nameSpan);
+    infoDiv.appendChild(sizeSpan);
+    item.appendChild(infoDiv);
+
+    const actionsDiv = document.createElement('div');
+    actionsDiv.className = 'file-actions';
+
+    if (isPreviewable) {
+      const previewBtn = document.createElement('button');
+      previewBtn.className = 'btn-preview';
+      previewBtn.textContent = 'Preview';
+      previewBtn.addEventListener('click', () => {
+        showPreview(url, safeType, safeName);
+      });
+      actionsDiv.appendChild(previewBtn);
+    }
+
+    const downloadLink = document.createElement('a');
+    downloadLink.className = 'btn-download';
+    downloadLink.href = url;
+    downloadLink.download = safeName;
+    downloadLink.textContent = 'Download';
+    actionsDiv.appendChild(downloadLink);
+
+    item.appendChild(actionsDiv);
     list.prepend(item);
 
     this.updateReceiveProgress(1, data.blob.size, data.blob.size);
-    this.showToast('"' + data.name + '" received!', 'success');
-    if (data.fileType?.startsWith('image/')) showPreview(url, data.fileType, data.name);
+    this.showToast('"' + safeName + '" received!', 'success');
+    if (isSafeImage) showPreview(url, safeType, safeName);
   },
 
   addChatMessage(name, message, isMine) {
     const chat = document.getElementById('chat-messages');
     if (!chat) return;
-    // Remove placeholder
     const placeholder = chat.querySelector('[data-placeholder]');
     placeholder?.remove();
 
     const msg = document.createElement('div');
     msg.className = 'chat-msg ' + (isMine ? 'mine' : 'theirs');
-    msg.innerHTML = '<span class="chat-name">' + (isMine ? 'You' : escapeHtml(name)) + '</span><span class="chat-text">' + escapeHtml(message) + '</span>';
+
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'chat-name';
+    nameSpan.textContent = isMine ? 'You' : (name || 'Anonymous');
+
+    const textSpan = document.createElement('span');
+    textSpan.className = 'chat-text';
+    textSpan.textContent = message || '';
+
+    msg.appendChild(nameSpan);
+    msg.appendChild(textSpan);
     chat.appendChild(msg);
     chat.scrollTop = chat.scrollHeight;
   }
 };
 
-// ─── Preview Modal ──────────────────────────────────────────────
+// ─── Preview Modal (Secured against XSS) ─────────────────────────
 window.showPreview = function(url, type, name) {
   const modal = document.getElementById('preview-modal');
   const content = document.getElementById('preview-content');
@@ -506,14 +621,40 @@ window.showPreview = function(url, type, name) {
   if (!modal || !content) return;
   if (title) title.textContent = name;
   content.innerHTML = '';
-  if (type.startsWith('image/')) {
-    content.innerHTML = '<img src="' + url + '" style="max-width:100%;max-height:70vh;object-fit:contain;display:block;margin:0 auto">';
-  } else if (type.startsWith('video/')) {
-    content.innerHTML = '<video src="' + url + '" controls style="max-width:100%;max-height:70vh;display:block;margin:0 auto"></video>';
-  } else if (type.startsWith('audio/')) {
-    content.innerHTML = '<audio src="' + url + '" controls style="width:100%"></audio>';
-  } else if (type === 'application/pdf') {
-    content.innerHTML = '<iframe src="' + url + '" style="width:100%;height:70vh;border:none"></iframe>';
+
+  const safeType = typeof type === 'string' ? type.toLowerCase() : '';
+  if (safeType.startsWith('image/') && !safeType.includes('svg')) {
+    const img = document.createElement('img');
+    img.src = url;
+    img.style.maxWidth = '100%';
+    img.style.maxHeight = '70vh';
+    img.style.objectFit = 'contain';
+    img.style.display = 'block';
+    img.style.margin = '0 auto';
+    content.appendChild(img);
+  } else if (safeType.startsWith('video/')) {
+    const video = document.createElement('video');
+    video.src = url;
+    video.controls = true;
+    video.style.maxWidth = '100%';
+    video.style.maxHeight = '70vh';
+    video.style.display = 'block';
+    video.style.margin = '0 auto';
+    content.appendChild(video);
+  } else if (safeType.startsWith('audio/')) {
+    const audio = document.createElement('audio');
+    audio.src = url;
+    audio.controls = true;
+    audio.style.width = '100%';
+    content.appendChild(audio);
+  } else if (safeType === 'application/pdf') {
+    const iframe = document.createElement('iframe');
+    iframe.src = url;
+    iframe.setAttribute('sandbox', 'allow-scripts');
+    iframe.style.width = '100%';
+    iframe.style.height = '70vh';
+    iframe.style.border = 'none';
+    content.appendChild(iframe);
   }
   modal.classList.remove('hidden');
 };
@@ -543,9 +684,12 @@ function getFileIcon(type) {
 
 function escapeHtml(str) {
   if (!str) return '';
-  const d = document.createElement('div');
-  d.appendChild(document.createTextNode(String(str)));
-  return d.innerHTML;
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 // ─── QR toggle helper ───────────────────────────────────────────
