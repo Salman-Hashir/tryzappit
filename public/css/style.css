@@ -633,10 +633,20 @@ html, body {
 .share-row {
   display: flex;
   gap: 8px;
+  width: 100%;
+  max-width: 100%;
 }
 
-.share-row .input { border-radius: var(--radius) 0 0 var(--radius); }
-.share-row .btn { border-radius: 0 var(--radius) var(--radius) 0; flex-shrink: 0; }
+.share-row .input {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: 0;
+  border-radius: var(--radius) 0 0 var(--radius);
+}
+.share-row .btn {
+  border-radius: 0 var(--radius) var(--radius) 0;
+  flex-shrink: 0;
+}
 
 /* ── SECTION LABEL ────────────────── */
 .section-label {
@@ -689,7 +699,39 @@ html, body {
 /* ── RESPONSIVE ───────────────────── */
 @media (max-width: 768px) {
   .nav { padding: 14px 16px; }
+  .page-wrap { padding: 16px 12px !important; }
+  .card { padding: 18px 14px !important; }
   .grid-2, .grid-3 { grid-template-columns: 1fr; }
-  .room-code-display { font-size: 22px; letter-spacing: 6px; }
+  .room-layout { grid-template-columns: 1fr !important; gap: 14px !important; }
+  .setup-card { margin: 24px auto !important; padding: 20px 16px !important; }
+  .room-code-display { font-size: 20px; letter-spacing: 4px; padding: 14px 8px; }
   .file-actions { flex-direction: column; }
+  .dropzone { padding: 32px 14px; }
+  .chat-container { height: 260px; }
+}
+
+/* ── FOOTER CREDIT ────────────────── */
+.app-footer {
+  border-top: 1px solid var(--border);
+  padding: 24px 20px;
+  text-align: center;
+  margin-top: 48px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text-muted);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.app-footer a {
+  color: var(--green);
+  text-decoration: none;
+  font-weight: 700;
+  transition: all 0.2s;
+}
+
+.app-footer a:hover {
+  text-shadow: 0 0 10px rgba(0,255,136,0.5);
 }
